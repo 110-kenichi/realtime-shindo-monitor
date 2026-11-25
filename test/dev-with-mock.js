@@ -2,7 +2,7 @@
 // 模擬の強震モニタにつないでアプリを起動する（強震モニタに接続できない環境での画面確認用）。
 //   npm run dev:mock  →  http://localhost:8080/
 import { startMockUpstream } from './mock-upstream.js';
-import { createServer } from '../server.js';
+import { createServer } from '../lib/server.js';
 
 const mock = await startMockUpstream({ port: Number(process.env.MOCK_PORT) || 8090 });
 const port = Number(process.env.PORT) || 8080;

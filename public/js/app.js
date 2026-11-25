@@ -787,6 +787,11 @@ async function loadBaseMap() {
 // 起動
 // ---------------------------------------------------------------------------
 
+if (location.protocol === 'file:') {
+  // index.html を直接開いた場合は中継サーバーが無いので動かない
+  alert('このページは index.html を直接開いても動きません。\nフォルダで npm start を実行し、表示された http://localhost:8080/ を開いてください。');
+}
+
 renderLegend();
 bindUi();
 renderQuakes();

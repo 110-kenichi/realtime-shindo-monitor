@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
-import { createServer } from '../server.js';
+import { createServer } from '../lib/server.js';
 import { startMockUpstream } from './mock-upstream.js';
 import { formatKmoniTime } from '../public/js/kmoni.js';
 
