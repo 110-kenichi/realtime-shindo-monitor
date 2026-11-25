@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="dark light">
+  <meta name="description" content="防災科研の強震モニタのリアルタイム震度を地図に表示し、揺れ検知・緊急地震速報・地震情報をまとめて見られるアプリ">
+  <title>リアルタイム震度モニタ</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="icon.svg" alt="" width="26" height="26">
+      <h1>リアルタイム震度モニタ</h1>
+    </div>
+    <div class="status" aria-live="polite">
+      <span id="mode-chip" class="chip chip-live">ライブ</span>
+      <span class="time-block">
+        <span id="data-time" class="data-time">--:--:--</span>
+        <span id="delay" class="muted small"></span>
+      </span>
+      <span id="conn" class="conn" data-state="connecting" title="強震モニタに接続中">接続中</span>
+    </div>
+    <div class="actions">
+      <button id="btn-sound" class="icon-btn" type="button" aria-pressed="false" title="通知音">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/><path class="sound-on" d="M16 8.5a4.5 4.5 0 0 1 0 7M18.5 6a8 8 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path class="sound-off" d="M16.5 9.5l5 5m0-5l-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <span class="label">通知音</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="map-panel" aria-label="リアルタイム震度の地図">
+      <div class="banners">
+        <div id="eew-banner" class="eew-banner" role="alert" hidden></div>
+        <div id="shake-banner" class="shake-banner" role="status" hidden></div>
+      </div>
+      <div class="map-area">
+        <canvas id="map"></canvas>
+        <div class="map-controls">
+          <button id="zoom-in" type="button" title="拡大">＋</button>
+          <button id="zoom-out" type="button" title="縮小">－</button>
+          <button id="zoom-reset" type="button" title="全体を表示">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div id="tooltip" class="tooltip" hidden></div>
+      </div>
+      <div id="replay-bar" class="replay-bar" hidden>
+        <span class="chip chip-replay">再生中</span>
+        <span id="replay-time" class="data-time">--</span>
+        <div class="replay-buttons">
+          <button id="rp-back" type="button" title="10秒戻る">−10秒</button>
+          <button id="rp-toggle" type="button">一時停止</button>
+          <button id="rp-fwd" type="button" title="10秒進む">＋10秒</button>
+          <button id="rp-speed" type="button" title="再生速度">×1</button>
+          <button id="rp-live" type="button" class="primary">ライブに戻る</button>
+        </div>
+      </div>
+      <div class="legend">
+        <div class="legend-title">リアルタイム震度</div>
+        <div class="legend-scale">
+          <div id="legend-bar" class="legend-bar"></div>
+          <div id="legend-ticks" class="legend-ticks"></div>
+        </div>
+      </div>
+    </section>
+
+    <aside class="side">
+      <section class="card max-card">
+        <div class="card-head">
+          <h2>全国の最大リアルタイム震度</h2>
+          <span id="station-count" class="muted small"></span>
+        </div>
+        <div class="max-row">
+          <span id="max-badge" class="shindo-badge large">-</span>
+          <div>
+            <div id="max-value" class="max-value">-.-</div>
+            <div id="max-note" class="muted small">リアルタイム震度（計測震度相当）</div>
+          </div>
+        </div>
+        <canvas id="spark" class="spark" aria-label="最大リアルタイム震度の推移（直近5分）"></canvas>
+        <div class="spark-caption muted small"><span>5分前</span><span>現在</span></div>
+      </section>
+
+      <section id="eew-card" class="card eew-card" hidden>
+        <div class="card-head"><h2>緊急地震速報</h2><span id="eew-serial" class="muted small"></span></div>
+        <div id="eew-body"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>震度別の観測点数</h2><span class="muted small">震度1相当以上</span></div>
+        <div id="class-bars" class="class-bars"></div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>最近の地震</h2><span id="p2p-status" class="muted small">読み込み中…</span></div>
+        <ul id="quake-list" class="quake-list"></ul>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>過去の揺れを再生</h2></div>
+        <form id="replay-form" class="replay-form">
+          <label>日時（日本時間）
+            <input id="replay-input" type="datetime-local" step="1" required>
+          </label>
+          <label>主な地震から選ぶ
+            <select id="replay-preset">
+              <option value="">選択してください</option>
+            </select>
+          </label>
+          <button type="submit" class="primary">この時刻から再生</button>
+          <p class="muted small">強震モニタに保存されているデータを再生します。古い日時はデータが無い場合があります。</p>
+        </form>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>表示設定</h2></div>
+        <div class="settings">
+          <div class="segmented" role="radiogroup" aria-label="観測点">
+            <span class="seg-label">観測点</span>
+            <label><input type="radio" name="type" value="jma_s" checked> 地表</label>
+            <label><input type="radio" name="type" value="jma_b"> 地中</label>
+          </div>
+          <label class="check"><input id="opt-overlays" type="checkbox" checked> 緊急地震速報の推定震度・P波/S波を表示</label>
+          <label class="check"><input id="opt-detect" type="checkbox" checked> 揺れ検知（近くの複数の観測点が同時に揺れたら知らせる）</label>
+          <label class="check"><input id="opt-sound" type="checkbox"> 通知音を鳴らす</label>
+        </div>
+      </section>
+
+      <footer class="credits small muted">
+        <p>リアルタイム震度・緊急地震速報：<a href="http://www.kmoni.bosai.go.jp/" target="_blank" rel="noopener">防災科学技術研究所 強震モニタ</a>／地震情報：<a href="https://www.p2pquake.net/" target="_blank" rel="noopener">P2P地震情報</a>（気象庁発表）</p>
+        <p>表示される値は観測データの色から読み取った参考値です。避難などの判断は気象庁・自治体の発表に従ってください。</p>
+      </footer>
+    </aside>
+  </main>
+</body>
+</html>

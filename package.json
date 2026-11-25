@@ -1,0 +1,19 @@
+{
+  "name": "realtime-shindo-monitor",
+  "version": "1.0.0",
+  "description": "防災科研の強震モニタのリアルタイム震度を地図に表示し、揺れ検知・緊急地震速報・地震情報をまとめて見られるアプリ",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "mock": "node test/mock-upstream.js",
+    "dev:mock": "node test/dev-with-mock.js",
+    "test": "node --test test/*.test.js"
+  },
+  "devDependencies": {
+    "world-atlas": "^2.0.2"
+  }
+}
