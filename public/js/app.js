@@ -11,15 +11,6 @@ const $ = (id) => document.getElementById(id);
 const HISTORY_MS = 5 * 60 * 1000;
 const P2P_EEW_TTL = 3 * 60 * 1000;
 
-const PRESETS = [
-  ['2024-01-01T16:10:00', '2024/01/01 能登半島地震（M7.6・最大震度7）'],
-  ['2024-08-08T16:42:45', '2024/08/08 日向灘の地震（M7.1・最大震度6弱）'],
-  ['2022-03-16T23:36:20', '2022/03/16 福島県沖の地震（M7.4・最大震度6強）'],
-  ['2021-02-13T23:07:40', '2021/02/13 福島県沖の地震（M7.3・最大震度6強）'],
-  ['2018-09-06T03:07:50', '2018/09/06 北海道胆振東部地震（M6.7・最大震度7）'],
-  ['2016-04-16T01:24:55', '2016/04/16 熊本地震 本震（M7.3・最大震度7）'],
-];
-
 // ---------------------------------------------------------------------------
 // 設定（ブラウザに保存。保存できない環境でも動くようにする）
 // ---------------------------------------------------------------------------
@@ -178,7 +169,7 @@ async function loadFrame(t, gen) {
       if (state.lastRequested === t) state.lastRequested = t - 1000; // 同じ時刻をもう一度試す
       if (state.fails >= 3) setConn('error', '強震モニタからデータを取得できません');
     } else if (state.fails >= 5 && !state.lastRendered) {
-      map.setMessage('この日時のデータを取得できません（保存期間外の可能性があります）');
+      map.setMessage('この日時のデータは強震モニタに残っていません');
     }
   } finally {
     state.inflight--;
@@ -625,6 +616,8 @@ function clearDisplay() {
   map.setMessage('読み込み中…');
   renderShake(null);
   refreshEew();
+  $('data-time').textContent = '--:--:--';
+  $('delay').textContent = '';
 }
 
 function startReplay(t) {
@@ -731,12 +724,8 @@ function bindUi() {
     detector.reset();
   });
 
-  const preset = $('replay-preset');
-  for (const [value, label] of PRESETS) preset.append(new Option(label, value));
-  preset.addEventListener('change', () => {
-    if (preset.value) $('replay-input').value = preset.value;
-  });
-  $('replay-input').value = PRESETS[0][0];
+  // 初期値は 10 分前（日本時間）。datetime-local の書式 "yyyy-MM-ddTHH:mm:ss" にする
+  $('replay-input').value = formatJst(Date.now() - 600_000).replace(/\//g, '-').replace(' ', 'T');
   $('replay-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const t = parseJst($('replay-input').value);
