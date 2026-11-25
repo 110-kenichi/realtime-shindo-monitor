@@ -328,3 +328,7 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
   .eew-banner .eew-title { font-size: 14px; }
   .shake-banner { flex-wrap: wrap; row-gap: 2px; padding: 6px 10px; }
 }
+
+.sub-head { font-size: 13px; color: var(--muted); margin: 16px 0 4px; }
+#archive-note { margin: 0 0 8px; }
+.tag { font-size: 11px; padding: 0 6px; border-radius: 4px; border: 1px solid var(--accent); color: var(--accent); font-weight: 600; white-space: nowrap; }

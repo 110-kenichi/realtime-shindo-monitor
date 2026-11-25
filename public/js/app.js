@@ -50,6 +50,7 @@ const state = {
   notifiedEew: new Map(), // id -> { serial, warning }
   peakIdx: -1,
   quakes: [],
+  archive: { enabled: false, minScale: null, items: [] },
   freshQuake: null,
   openQuake: null,
 };
@@ -169,7 +170,7 @@ async function loadFrame(t, gen) {
       if (state.lastRequested === t) state.lastRequested = t - 1000; // 同じ時刻をもう一度試す
       if (state.fails >= 3) setConn('error', '強震モニタからデータを取得できません');
     } else if (state.fails >= 5 && !state.lastRendered) {
-      map.setMessage('この日時のデータは強震モニタに残っていません');
+      map.setMessage('この日時のデータは強震モニタに残っておらず、保存もされていません');
     }
   } finally {
     state.inflight--;
@@ -504,6 +505,7 @@ function renderQuakes() {
     const name = document.createElement('div');
     name.className = 'name';
     name.textContent = q.foreign ? `${q.name || '海外'}（遠地地震）` : (q.name || '震源を調査中');
+
     const sub = document.createElement('div');
     sub.className = 'sub';
     const bits = [Number.isFinite(q.time) ? `${formatJst(q.time, { seconds: false })}頃` : ''];
@@ -513,6 +515,13 @@ function renderQuakes() {
       const span = document.createElement('span');
       span.textContent = b;
       sub.append(span);
+    }
+    if (state.archive.items.some((a) => a.key === q.key)) {
+      const tag = document.createElement('span');
+      tag.className = 'tag';
+      tag.textContent = '保存済み';
+      tag.title = 'このアプリが揺れのデータを保存しています。いつでも再生できます';
+      sub.append(tag);
     }
     main.append(name, sub);
     const playBtn = document.createElement('button');
@@ -539,6 +548,60 @@ function renderQuakes() {
     li.className = 'muted small';
     li.style.padding = '8px 10px';
     li.textContent = '地震情報はまだありません';
+    list.append(li);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 保存した地震（サーバーが自動で記録したもの）
+// ---------------------------------------------------------------------------
+
+async function loadArchive() {
+  try {
+    state.archive = await fetchJson('/api/archive');
+  } catch {
+    return;
+  }
+  renderArchive();
+  renderQuakes();
+}
+
+function renderArchive() {
+  const { enabled, minScale, items } = state.archive;
+  const cls = p2pScaleToClass(minScale);
+  $('archive-note').textContent = !enabled
+    ? '地震の記録は無効になっています（ARCHIVE=off）。'
+    : `アプリの起動中に${cls ? `震度${cls.label}` : ''}以上の地震が発表されると、前後の揺れを自動で保存します。${items.length ? '' : 'まだ保存した地震はありません。'}`;
+  const list = $('archive-list');
+  list.replaceChildren();
+  for (const a of items) {
+    const li = document.createElement('li');
+    const row = document.createElement('div');
+    row.className = 'quake-row';
+    const main = document.createElement('div');
+    main.className = 'main';
+    const name = document.createElement('div');
+    name.className = 'name';
+    name.textContent = a.name || '震源不明';
+    const sub = document.createElement('div');
+    sub.className = 'sub';
+    for (const b of [`${formatJst(a.time, { seconds: false })}頃`, a.magnitude != null ? `M${a.magnitude.toFixed(1)}` : '']) {
+      if (!b) continue;
+      const span = document.createElement('span');
+      span.textContent = b;
+      sub.append(span);
+    }
+    main.append(name, sub);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'play';
+    btn.textContent = '再生';
+    btn.addEventListener('click', () => {
+      startReplay(a.start);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    row.append(badge(p2pScaleToClass(a.maxScale)), main, btn);
+    li.append(row);
     list.append(li);
   }
 }
@@ -793,4 +856,6 @@ if (Number.isFinite(initialReplay) && initialReplay < Date.now()) startReplay(in
 
 setInterval(tick, 200);
 setInterval(refreshEew, 5000); // P2P地震情報の緊急地震速報を時間で消す
+loadArchive();
+setInterval(loadArchive, 60_000);
 tick();
