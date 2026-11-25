@@ -89,6 +89,26 @@ for (const size of [1, 3]) {
   });
 }
 
+test('くっついた 3×3 の観測点を 1 つずつに切り分ける（都市部の密集地）', () => {
+  const stations = [
+    // 横・縦・斜めにくっついた 4 点
+    { x: 10, y: 10, i: 1 }, { x: 13, y: 10, i: 3 }, { x: 10, y: 13, i: -1 }, { x: 13, y: 13, i: 5 },
+    // 半分ずれてくっついた 2 点
+    { x: 30, y: 10, i: 2 }, { x: 33, y: 11, i: 0 },
+    // 9 点の密集（3×3 の格子）
+    ...Array.from({ length: 9 }, (_, k) => ({ x: 5 + (k % 3) * 3, y: 30 + Math.floor(k / 3) * 3, i: k / 2 })),
+    // 離れた単独の点
+    { x: 50, y: 50, i: 4 }, { x: 45, y: 25, i: -2 },
+  ];
+  const points = analyzeImage(makeImage(60, 60, stations, 3), 60, 60);
+  assert.equal(points.length, stations.length);
+  for (const s of stations) {
+    const p = points.find((q) => q.x === s.x + 1 && q.y === s.y + 1);
+    assert.ok(p, `(${s.x},${s.y}) が見つからない`);
+    assert.ok(Math.abs(p.i - s.i) < 0.12, `${s.i} → ${p.i}`);
+  }
+});
+
 test('観測点の key は同じ位置なら毎回同じ', () => {
   const a = analyzeImage(makeImage(30, 30, [{ x: 3, y: 4, i: 1 }, { x: 20, y: 20, i: 2 }], 2), 30, 30);
   const b = analyzeImage(makeImage(30, 30, [{ x: 3, y: 4, i: 5 }, { x: 20, y: 20, i: -1 }], 2), 30, 30);

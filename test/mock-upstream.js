@@ -104,11 +104,12 @@ function buildBaseMap(mask) {
   return encodePng(W, H, rgba);
 }
 
-function placeStations(mask, { count = 1700, size = 1, seed = 42 } = {}) {
+function placeStations(mask, { count = 1400, size = 3, seed = 42 } = {}) {
   const rnd = mulberry32(seed);
   const land = [];
   for (let k = 0; k < mask.length; k++) if (mask[k]) land.push(k);
-  const minD2 = (size + 1.5) ** 2;
+  // 本物と同じく、密集した所では四角同士がくっつく（重ならない）配置にする
+  const minD2 = size === 1 ? 2.5 ** 2 : size ** 2;
   const grid = new Map();
   const cell = (x, y) => `${Math.floor(x / 4)},${Math.floor(y / 4)}`;
   const stations = [];
@@ -120,7 +121,7 @@ function placeStations(mask, { count = 1700, size = 1, seed = 42 } = {}) {
     for (let gx = -1; gx <= 1 && ok; gx++) {
       for (let gy = -1; gy <= 1 && ok; gy++) {
         for (const s of grid.get(`${Math.floor(x / 4) + gx},${Math.floor(y / 4) + gy}`) ?? []) {
-          if ((s.x - x) ** 2 + (s.y - y) ** 2 < minD2) { ok = false; break; }
+          if (size === 1 ? (s.x - x) ** 2 + (s.y - y) ** 2 < minD2 : Math.max(Math.abs(s.x - x), Math.abs(s.y - y)) < size) { ok = false; break; }
         }
       }
     }
@@ -262,7 +263,7 @@ function renderEstShindo(mask, scenario) {
 }
 
 export function startMockUpstream({
-  port = 0, host = '127.0.0.1', stationSize = 1, scenario: scenarioOpts = {}, lagMs = 1000,
+  port = 0, host = '127.0.0.1', stationSize = 3, scenario: scenarioOpts = {}, lagMs = 1000,
 } = {}) {
   const mask = buildLandMask();
   const stations = placeStations(mask, { size: stationSize });
@@ -328,6 +329,6 @@ export function startMockUpstream({
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
   const port = Number(process.env.MOCK_PORT) || 8090;
-  const mock = await startMockUpstream({ port, stationSize: Number(process.env.MOCK_STATION_SIZE) || 1 });
+  const mock = await startMockUpstream({ port, stationSize: Number(process.env.MOCK_STATION_SIZE) || 3 });
   console.log(`模擬の強震モニタ: ${mock.url}（観測点 ${mock.stations.length} 点、20秒後から3分ごとに模擬地震）`);
 }

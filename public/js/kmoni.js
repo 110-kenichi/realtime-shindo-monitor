@@ -164,6 +164,55 @@ export function analyzeImage(data, width, height) {
     const v = colorToIntensity(data[o], data[o + 1], data[o + 2]);
     if (v !== null) val[k] = v;
   }
+  const blobs = connectedPoints(data, val, width, height);
+  // 観測点は一定の大きさの四角で描かれている（強震モニタは 3×3 画素）。
+  // 密集した所では四角同士がくっつくので、最も多い大きさから四角の一辺を求めて切り分ける。
+  const side = blockSide(blobs);
+  return side > 1 ? blockPoints(data, val, width, height, side) : blobs;
+}
+
+/** まとまりの大きさの最頻値から、観測点の四角の一辺（画素）を求める */
+function blockSide(blobs) {
+  const freq = new Map();
+  for (const b of blobs) freq.set(b.size, (freq.get(b.size) ?? 0) + 1);
+  let mode = 1;
+  let best = 0;
+  for (const [size, c] of freq) if (c > best || (c === best && size < mode)) { best = c; mode = size; }
+  const side = Math.round(Math.sqrt(mode));
+  return side * side === mode && side <= 6 ? side : 1;
+}
+
+/** 上から順に、まだ割り当てていない画素を左上とする side×side の四角を 1 つの観測点にする */
+function blockPoints(data, val, width, height, side) {
+  const used = new Uint8Array(width * height);
+  const minSize = Math.ceil((side * side) / 3); // 他の四角に大きく隠れた切れ端は数えない
+  const points = [];
+  for (let k = 0; k < val.length; k++) {
+    if (used[k] || Number.isNaN(val[k])) continue;
+    const x0 = k % width;
+    const y0 = (k - x0) / width;
+    let sx = 0; let sy = 0; let cnt = 0; let maxV = -Infinity; let maxK = k;
+    for (let y = y0; y < Math.min(height, y0 + side); y++) {
+      for (let x = x0; x < Math.min(width, x0 + side); x++) {
+        const c = y * width + x;
+        if (used[c] || Number.isNaN(val[c])) continue;
+        used[c] = 1;
+        sx += x; sy += y; cnt++;
+        if (val[c] > maxV) { maxV = val[c]; maxK = c; }
+      }
+    }
+    if (cnt < minSize) continue;
+    points.push({
+      key: k, x: sx / cnt, y: sy / cnt, i: maxV, size: cnt,
+      rgb: [data[maxK * 4], data[maxK * 4 + 1], data[maxK * 4 + 2]],
+    });
+  }
+  return points;
+}
+
+/** 上下左右につながった画素を 1 つにまとめる */
+function connectedPoints(data, val, width, height) {
+  const n = width * height;
 
   const seen = new Uint8Array(n);
   const stack = [];
