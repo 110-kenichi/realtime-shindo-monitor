@@ -200,6 +200,33 @@ export function analyzeImage(data, width, height) {
   }
 }
 
+/**
+ * 診断用：画像の画素を数える（観測点の数が合わないときの調査用）。
+ * 不透明な画素のうち、震度に換算できた数・できなかった色の内訳と、まとまり（観測点）の大きさの分布を返す。
+ */
+export function imageStats(data, width, height, points = analyzeImage(data, width, height)) {
+  let opaque = 0;
+  let accepted = 0;
+  const rejected = new Map();
+  for (let o = 0; o < data.length; o += 4) {
+    if (data[o + 3] < 128) continue;
+    opaque++;
+    if (colorToIntensity(data[o], data[o + 1], data[o + 2]) !== null) { accepted++; continue; }
+    const k = `${data[o]},${data[o + 1]},${data[o + 2]}`;
+    rejected.set(k, (rejected.get(k) ?? 0) + 1);
+  }
+  const sizes = new Map();
+  for (const p of points) sizes.set(p.size, (sizes.get(p.size) ?? 0) + 1);
+  return {
+    size: `${width}x${height}`,
+    opaque,
+    accepted,
+    points: points.length,
+    pointSizes: [...sizes.entries()].sort((a, b) => a[0] - b[0]).slice(0, 12),
+    rejectedTop: [...rejected.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10),
+  };
+}
+
 /** リアルタイム震度の表示用の文字列（小数1桁、マイナスは全角幅の「−」） */
 export function formatValue(i) {
   const s = (Math.round(i * 10) / 10).toFixed(1);

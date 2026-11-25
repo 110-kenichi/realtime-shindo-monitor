@@ -1,5 +1,5 @@
 import {
-  SHINDO_CLASSES, analyzeImage, summarize, intensityToClass, intensityToRgb, p2pScaleToClass, formatValue,
+  SHINDO_CLASSES, analyzeImage, imageStats, summarize, intensityToClass, intensityToRgb, p2pScaleToClass, formatValue,
   formatKmoniTime, formatJst, parseJst, parseKmoniEew,
 } from './kmoni.js';
 import { ShakeDetector } from './detector.js';
@@ -181,8 +181,32 @@ async function loadFrame(t, gen) {
 // 1 秒ごとのデータを画面に反映
 // ---------------------------------------------------------------------------
 
+const DEBUG = new URLSearchParams(location.search).has('debug');
+let debugBox = null;
+
+/** ?debug を付けて開いたとき、画像の解析結果を画面に表示する（コピーして報告してもらう用） */
+function showDebug(t, frame, points) {
+  if (!debugBox) {
+    debugBox = document.createElement('pre');
+    Object.assign(debugBox.style, {
+      position: 'fixed', left: '8px', bottom: '8px', zIndex: 50, maxWidth: 'calc(100vw - 16px)', maxHeight: '45vh',
+      overflow: 'auto', margin: 0, padding: '8px', font: '12px/1.4 monospace', background: 'rgba(0,0,0,0.85)',
+      color: '#fff', borderRadius: '8px', userSelect: 'text', whiteSpace: 'pre-wrap',
+    });
+    document.body.append(debugBox);
+  }
+  const s = imageStats(frame.data, frame.width, frame.height, points);
+  debugBox.textContent = [
+    `時刻 ${formatKmoniTime(t)} 種類 ${settings.type} 画像 ${s.size}`,
+    `不透明な画素 ${s.opaque} / 震度に換算できた画素 ${s.accepted} / 観測点として数えた数 ${s.points}`,
+    `観測点の大きさ（画素数:個数） ${s.pointSizes.map(([k, v]) => `${k}:${v}`).join(' ')}`,
+    `換算できなかった色（R,G,B:画素数） ${s.rejectedTop.map(([k, v]) => `${k}:${v}`).join('  ') || 'なし'}`,
+  ].join('\n');
+}
+
 function onFrame(t, frame, kmoniEew, est, ps) {
   const points = analyzeImage(frame.data, frame.width, frame.height);
+  if (DEBUG) showDebug(t, frame, points);
   map.setWorldSize(frame.width, frame.height);
 
   const det = settings.detect
